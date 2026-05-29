@@ -1,6 +1,6 @@
 ---
 name: network
-description: USPTO D18クラス設計特許の引用ネットワーク構築・グラフ分析を行う。引用ペアJSONLを起点にネットワークを構築し、中心性・コミュニティ・時系列変化などを分析する場合に使う。
+description: USPTO D18クラス設計特許の引用ネットワーク構築・グラフ分析を行う。引用ペアJSONLを起点に有向グラフを構築し、トリプレット抽出・コサイン類似度付与までの一連のパイプラインを実行する場合に使う。ネットワーク統計・中心性・トリプレットパターン分析が必要な時にも使う。
 allowed-tools: Read Write Bash
 disable-model-invocation: false
 context: fork
@@ -156,5 +156,199 @@ python3 build_network.py
 ## 依存ライブラリ
 
 ```bash
-pip install networkx matplotlib numpy scipy
+pip install networkx matplotlib numpy scipy pandas
 ```
+
+---
+
+# パイプライン全体フロー
+
+```
+【外部データ（上流）】
+/mnt/eightthdd/uspto/class/D18/cited_image_pairs/{year}.jsonl   ← 実験起点
+/mnt/eightthdd/uspto/class/D18/rank_judgments/cosine_numpy/all.jsonl  ← 類似度ソース
+
+        │                                   │
+        ▼                                   │
+ ┌─────────────────┐                        │
+ │ build_network.py│                        │
+ └────────┬────────┘                        │
+          │                                 │
+          ▼                                 │
+ data/d18_citation_network.graphml  ◄───────┤ (グラフ構築)
+ data/d18_citation_network.gexf             │
+ data/d18_edges.csv                         │
+ data/d18_nodes.csv                         │
+ output/d18_citation_network.png            │
+ output/d18_degree_distribution.png         │
+          │                                 │
+          ▼                                 │
+ ┌──────────────────────┐                   │
+ │ triplet_analysis.py  │                   │
+ └──────────┬───────────┘                   │
+            │                               │
+            ▼                               │
+ data/triplets_type1.csv                    │
+ data/triplets_type2.csv                    │
+ data/triplets_type3.csv                    │
+            │                               │
+            └───────────────────────────────┘
+                        │
+                        ▼
+            ┌───────────────────────┐
+            │   add_similarity.py   │
+            └───────────┬───────────┘
+                        │
+                        ▼
+            data/triplets_type1_sim.csv
+            data/triplets_type2_sim.csv
+            data/triplets_type3_sim.csv
+```
+
+---
+
+# STEP 2: トリプレット抽出 `triplet_analysis.py`
+
+## 実行方法
+
+```bash
+cd /home/sonozuka/network
+source venv/bin/activate
+python3 triplet_analysis.py
+```
+
+## 入力
+
+| ファイル | フルパス | 形式 | 備考 |
+|---|---|---|---|
+| エッジリスト | `/home/sonozuka/network/data/d18_edges.csv` | CSV | `build_network.py` 出力 |
+
+**入力スキーマ（使用列）:**
+
+| 列 | 内容 |
+|---|---|
+| `source` | 先行特許ID（source < target、アルファベット順） |
+| `target` | 後続特許ID |
+
+## 出力
+
+| ファイル | フルパス | 件数 |
+|---|---|---|
+| タイプ1 CSV | `/home/sonozuka/network/data/triplets_type1.csv` | 2,164件 |
+| タイプ2 CSV | `/home/sonozuka/network/data/triplets_type2.csv` | 2,255件 |
+| タイプ3 CSV | `/home/sonozuka/network/data/triplets_type3.csv` | 2,164件 |
+
+**出力スキーマ（全タイプ共通）:**
+
+| 列 | 内容 |
+|---|---|
+| `node_A` | 始端ノード（特許ID） |
+| `node_B` | 中間ノード（特許ID） |
+| `node_C` | 終端ノード（特許ID） |
+
+## トリプレットの定義
+
+| タイプ | パターン | 説明 | 除外条件 |
+|---|---|---|---|
+| タイプ1 | A → B → C | 連鎖（先行→中間→後続） | node_A == node_C |
+| タイプ2 | A → B ← C | 収束（2つの先行→共通後続） | node_A >= node_C（対称性除去） |
+| タイプ3 | A ← B ← C | 連鎖逆向き（後続→中間→先行） | node_A == node_C |
+
+## 抽出結果
+
+| タイプ | 件数 | 割合 |
+|---|---|---|
+| タイプ1 | 2,164 | 32.9% |
+| タイプ2 | 2,255 | 34.3% |
+| タイプ3 | 2,164 | 32.9% |
+| **合計** | **6,583** | 100% |
+
+---
+
+# STEP 3: コサイン類似度付与 `add_similarity.py`
+
+## 実行方法
+
+```bash
+cd /home/sonozuka/network
+source venv/bin/activate
+python3 add_similarity.py
+```
+
+## 入力
+
+| ファイル | フルパス | 形式 | 備考 |
+|---|---|---|---|
+| トリプレット（タイプ1） | `/home/sonozuka/network/data/triplets_type1.csv` | CSV | `triplet_analysis.py` 出力 |
+| トリプレット（タイプ2） | `/home/sonozuka/network/data/triplets_type2.csv` | CSV | 同上 |
+| トリプレット（タイプ3） | `/home/sonozuka/network/data/triplets_type3.csv` | CSV | 同上 |
+| 類似度データ | `/mnt/eightthdd/uspto/class/D18/rank_judgments/cosine_numpy/all.jsonl` | JSONL | 1,530ペア、欠損なし |
+
+**類似度 JSONL の使用フィールド:**
+
+| フィールド | 内容 |
+|---|---|
+| `source` | 先行特許ID（source < target） |
+| `target` | 後続特許ID |
+| `similarity` | コサイン類似度（0〜1） |
+
+**ルックアップキー正規化:** `(min(u, v), max(u, v))` で統一（source < target 保証）
+
+## 出力
+
+| ファイル | フルパス | 列構成 |
+|---|---|---|
+| タイプ1 + 類似度 | `/home/sonozuka/network/data/triplets_type1_sim.csv` | `node_A, node_B, node_C, sim_A_B, sim_B_C` |
+| タイプ2 + 類似度 | `/home/sonozuka/network/data/triplets_type2_sim.csv` | `node_A, node_B, node_C, sim_A_B, sim_C_B` |
+| タイプ3 + 類似度 | `/home/sonozuka/network/data/triplets_type3_sim.csv` | `node_A, node_B, node_C, sim_B_A, sim_C_B` |
+
+**ヒット率: 100%（全 6,583 件、欠損 0 件）**
+
+## コサイン類似度統計
+
+| タイプ | エッジ | min | max | mean | std | median |
+|---|---|---|---|---|---|---|
+| タイプ1 | sim_A_B | 0.4395 | 0.9967 | 0.8898 | 0.0997 | 0.9202 |
+| タイプ1 | sim_B_C | 0.4389 | 0.9967 | 0.8882 | 0.0906 | 0.9139 |
+| タイプ2 | sim_A_B | 0.4265 | 0.9953 | 0.8739 | 0.0958 | 0.8929 |
+| タイプ2 | sim_C_B | 0.4265 | 0.9967 | 0.8822 | 0.0928 | 0.9106 |
+| タイプ3 | sim_B_A | 0.4389 | 0.9967 | 0.8882 | 0.0906 | 0.9139 |
+| タイプ3 | sim_C_B | 0.4395 | 0.9967 | 0.8898 | 0.0997 | 0.9202 |
+
+---
+
+# パイプライン実行順序
+
+```bash
+cd /home/sonozuka/network
+source venv/bin/activate
+
+python3 build_network.py       # STEP 1: 有向グラフ構築・統計・可視化・グラフ保存
+python3 triplet_analysis.py    # STEP 2: トリプレット抽出
+python3 add_similarity.py      # STEP 3: コサイン類似度付与
+```
+
+# 全ファイル一覧
+
+| ファイル | フルパス | 生成スクリプト |
+|---|---|---|
+| グラフ（GraphML） | `/home/sonozuka/network/data/d18_citation_network.graphml` | build_network.py |
+| グラフ（GEXF） | `/home/sonozuka/network/data/d18_citation_network.gexf` | build_network.py |
+| エッジリスト | `/home/sonozuka/network/data/d18_edges.csv` | build_network.py |
+| ノード属性 | `/home/sonozuka/network/data/d18_nodes.csv` | build_network.py |
+| ネットワーク図 | `/home/sonozuka/network/output/d18_citation_network.png` | build_network.py |
+| 次数分布図 | `/home/sonozuka/network/output/d18_degree_distribution.png` | build_network.py |
+| トリプレット タイプ1 | `/home/sonozuka/network/data/triplets_type1.csv` | triplet_analysis.py |
+| トリプレット タイプ2 | `/home/sonozuka/network/data/triplets_type2.csv` | triplet_analysis.py |
+| トリプレット タイプ3 | `/home/sonozuka/network/data/triplets_type3.csv` | triplet_analysis.py |
+| タイプ1 + 類似度 | `/home/sonozuka/network/data/triplets_type1_sim.csv` | add_similarity.py |
+| タイプ2 + 類似度 | `/home/sonozuka/network/data/triplets_type2_sim.csv` | add_similarity.py |
+| タイプ3 + 類似度 | `/home/sonozuka/network/data/triplets_type3_sim.csv` | add_similarity.py |
+
+# 詳細ドキュメント
+
+| 内容 | ファイル |
+|---|---|
+| ネットワーク統計 | `/home/sonozuka/network/docs/network_stats.md` |
+| トリプレット分析・類似度統計 | `/home/sonozuka/network/docs/triplet_analysis.md` |
+| 入出力全体マップ・バイナリ仕様 | `/home/sonozuka/network/CLAUDE.md` |
