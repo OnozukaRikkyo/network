@@ -406,6 +406,57 @@ RC = {
 
 ---
 
+# STEP 5: ヒートマップ作成 `plot_heatmap.py`
+
+両エッジの LLM 判定（Yes=1 / No=0）の 2×2 カウントヒートマップ。
+3タイプ共通カラーバー 1本、セル内にカウント値を表示。
+
+## 実行方法
+
+```bash
+cd /home/sonozuka/network
+source venv/bin/activate
+python3 plot_heatmap.py
+```
+
+## 入力
+
+| ファイル | フルパス |
+|---|---|
+| タイプ1 enriched | `/home/sonozuka/network/data/triplets_type1_enriched.csv` |
+| タイプ2 enriched | `/home/sonozuka/network/data/triplets_type2_enriched.csv` |
+| タイプ3 enriched | `/home/sonozuka/network/data/triplets_type3_enriched.csv` |
+
+## 出力
+
+| ファイル | フルパス |
+|---|---|
+| ヒートマップ（3パネル） | `/home/sonozuka/network/output/fig_triplet_heatmap.png` |
+
+## 図スタイル仕様
+
+| 設定 | 値 |
+|---|---|
+| 図サイズ | 8.0 × 2.8 inch（3パネル横並び + 共通カラーバー）|
+| カラーマップ | `Blues`（モノクロ印刷・色覚多様性対応）|
+| 共通カラーバー | vmin=0、vmax=全タイプ最大カウント（1,818）|
+| セル注釈 | カウント値 13 pt bold、背景濃度に応じて白/黒文字切替（閾値 55%）|
+| 軸ラベル | 矢印表記（例: `Judgment (A→B)`）、14 pt |
+| ティック | 外向き length=0（ヒートマップ枠線のみ）|
+| パネルラベル | (a)(b)(c)、14 pt bold |
+| スパイン | 4辺 0.7 pt 統一 |
+| フォント | Arial / Helvetica、13/14 pt |
+
+## カウント行列（実測値）
+
+| | (0,0) No-No | (0,1) No-Yes | (1,0) Yes-No | (1,1) Yes-Yes |
+|---|---|---|---|---|
+| タイプ1 | 1,630 | 195 | 221 | 118 |
+| タイプ2 | 1,818 | 167 | 165 | 105 |
+| タイプ3 | 1,630 | 221 | 195 | 118 |
+
+---
+
 # パイプライン実行順序
 
 ```bash
@@ -416,6 +467,7 @@ python3 build_network.py       # STEP 1: 有向グラフ構築・統計・可視
 python3 triplet_analysis.py    # STEP 2: トリプレット抽出
 python3 enrich_triplets.py     # STEP 3: コサイン類似度・LLM判定・理由を付与
 python3 plot_triplets.py       # STEP 4: 散布図作成（1タイプ1PNG）
+python3 plot_heatmap.py        # STEP 5: ヒートマップ（3パネル共通カラーバー）
 ```
 
 # 全ファイル一覧
@@ -437,6 +489,7 @@ python3 plot_triplets.py       # STEP 4: 散布図作成（1タイプ1PNG）
 | タイプ1 散布図 | `/home/sonozuka/network/output/fig_triplet1_scatter.png` | plot_triplets.py |
 | タイプ2 散布図 | `/home/sonozuka/network/output/fig_triplet2_scatter.png` | plot_triplets.py |
 | タイプ3 散布図 | `/home/sonozuka/network/output/fig_triplet3_scatter.png` | plot_triplets.py |
+| ヒートマップ | `/home/sonozuka/network/output/fig_triplet_heatmap.png` | plot_heatmap.py |
 
 # 詳細ドキュメント
 
