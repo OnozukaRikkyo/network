@@ -133,13 +133,17 @@ def main():
             ax.set_xlabel(cfg["x_lbl"])
             ax.set_ylabel(cfg["y_lbl"])
 
-            # セル枠線
-            for xi in range(2):
-                for yi in range(2):
-                    ax.add_patch(plt.Rectangle(
-                        (yi - 0.5, xi - 0.5), 1, 1,
-                        fill=False, edgecolor="white", linewidth=2.0, zorder=3,
-                    ))
+            # セル枠線（imshow の上に直接描画、zorder 最前面）
+            lw = 2.0
+            lc = "black"
+            # 内側の分割線
+            ax.axvline(x=0.5,  color=lc, linewidth=lw, zorder=10)
+            ax.axhline(y=0.5,  color=lc, linewidth=lw, zorder=10)
+            # 外枠
+            for spine in ax.spines.values():
+                spine.set_linewidth(lw)
+                spine.set_color(lc)
+                spine.set_zorder(10)
 
             # スパイン統一
             for spine in ax.spines.values():
