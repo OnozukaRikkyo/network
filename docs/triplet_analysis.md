@@ -180,10 +180,71 @@ AとCが一致するケースは除外。
 - **全タイプで median sim > 0.89**: D18クラス内の引用ペアは全体的にコサイン類似度が高い。
 - **judgment の Yes率は全体で約 14.8%**: 元の引用ペアデータ（227/1,530 = 14.8%）と一致しており、トリプレット展開後もバランスが保持されている。
 
+---
+
+## 散布図（`plot_triplets.py`）
+
+### 概要
+
+各タイプについて、2エッジのコサイン類似度の散布図を物理学論文スタイルで出力する。
+
+- **横軸**: 第1エッジのコサイン類似度
+- **縦軸**: 第2エッジのコサイン類似度
+- **色**: 両エッジの judgment 組み合わせ（4カテゴリ）
+- **等高線**: ガウシアン KDE による密度等高線（全体 + Yes-Yes のみ）
+- **点線**: 対角線 $s_1 = s_2$（参照線）
+
+### 実行方法
+
+```bash
+cd /home/sonozuka/network
+source venv/bin/activate
+python3 plot_triplets.py
+```
+
+### 入出力
+
+| 種別 | フルパス |
+|---|---|
+| 入力 | `/home/sonozuka/network/data/triplets_type1_enriched.csv` |
+| 入力 | `/home/sonozuka/network/data/triplets_type2_enriched.csv` |
+| 入力 | `/home/sonozuka/network/data/triplets_type3_enriched.csv` |
+| 出力（PNG） | `/home/sonozuka/network/output/fig_triplet_scatter.png` |
+| 出力（PDF） | `/home/sonozuka/network/output/fig_triplet_scatter.pdf` |
+
+### 図スタイル仕様（PRL / Nature Physics 準拠）
+
+| 設定項目 | 値 |
+|---|---|
+| 図幅 | 7.2 inch（ダブルカラム） |
+| フォント | Arial / Helvetica, 8 pt（ラベル）/ 7 pt（ティック） |
+| DPI | 300（PNG）+ PDF ベクター |
+| ティック方向 | 内向き（`direction='in'`）、4辺表示 |
+| マイナーティック | 0.05 間隔で表示 |
+| 上右スパイン | 細線（0.4 pt）で残す（4辺ボックス） |
+| カラーパレット | Okabe-Ito（色覚多様性対応） |
+| 密度等高線 | Gaussian KDE（25/55/80 パーセンタイル） |
+
+### 色の凡例
+
+| 色 | カテゴリ | 意味 |
+|---|---|---|
+| グレー `#999999` | No–No | 両エッジとも LLM 判定 No |
+| オレンジ `#E69F00` | Yes–No | 第1エッジ Yes、第2エッジ No |
+| スカイブルー `#56B4E9` | No–Yes | 第1エッジ No、第2エッジ Yes |
+| バーミリオン `#D55E00` | Yes–Yes | 両エッジとも LLM 判定 Yes（最重要） |
+
+### Yes-Yes 件数
+
+| タイプ | 総件数 | Yes-Yes 件数 | Yes-Yes 率 |
+|---|---|---|---|
+| タイプ1 | 2,164 | 118 | 5.5% |
+| タイプ2 | 2,255 | 105 | 4.7% |
+| タイプ3 | 2,164 | 118 | 5.5% |
+
 ## 次のステップ
 
-- タイプ別の sim / judgment 分布の可視化
-- 両エッジが共に Yes のトリプレット（強一致三角形）の抽出
+- 両エッジが共に Yes のトリプレット（強一致三角形）の抽出・詳細分析
 - ハブノード（高次数）がどのタイプに多く出現するかの分析
 
 ## 参照
