@@ -477,6 +477,8 @@ python3 enrich_triplets.py     # STEP 3: コサイン類似度・LLM判定・理
 python3 plot_triplets.py       # STEP 4: 散布図作成（1タイプ1PNG）
 python3 plot_heatmap.py        # STEP 5: ヒートマップ（3パネル共通カラーバー）
 python3 plot_sim_histogram.py  # STEP 6: コサイン類似度 CDF（4線）
+python3 plot_degree_combined.py  # STEP 7: 次数分布（Undirected）+ サブグラフサイズ分布
+python3 export_network_stats.py  # STEP 8: 統計情報CSV出力
 ```
 
 # 全ファイル一覧
@@ -500,6 +502,11 @@ python3 plot_sim_histogram.py  # STEP 6: コサイン類似度 CDF（4線）
 | タイプ3 散布図 | `/home/sonozuka/network/output/fig_triplet3_scatter.png` | plot_triplets.py |
 | ヒートマップ | `/home/sonozuka/network/output/fig_triplet_heatmap.png` | plot_heatmap.py |
 | コサイン類似度 CDF | `/home/sonozuka/network/output/fig_sim_cdf.png` | plot_sim_histogram.py（300 DPI・論文図）|
+| 次数分布（Undirected） | `/home/sonozuka/network/output/fig_degree_combined.png` | plot_degree_combined.py（300 DPI・論文図）|
+| サブグラフサイズ分布 | `/home/sonozuka/network/output/fig_subgraph_size.png` | plot_degree_combined.py（300 DPI・論文図）|
+| ネットワーク統計（要約） | `/home/sonozuka/network/data/network_summary.csv` | export_network_stats.py |
+| PageRank 上位10 | `/home/sonozuka/network/data/network_pagerank.csv` | export_network_stats.py |
+| サブグラフサイズ分布CSV | `/home/sonozuka/network/data/network_component_dist.csv` | export_network_stats.py |
 
 # 詳細ドキュメント
 
