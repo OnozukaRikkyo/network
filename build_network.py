@@ -26,6 +26,7 @@ import numpy as np
 
 DATA_DIR   = pathlib.Path("/mnt/eightthdd/uspto/class/D18/cited_image_pairs")
 OUTPUT_DIR = pathlib.Path("/home/sonozuka/network/output")
+DATA_OUT   = pathlib.Path("/home/sonozuka/network/data")
 YEARS      = range(2007, 2023)
 
 
@@ -256,12 +257,69 @@ def visualize_network(G: nx.DiGraph) -> None:
     print(f"保存: {out2}")
 
 
+# ── グラフ保存 ──────────────────────────────────────────────────────────
+
+def save_graph(G: nx.DiGraph) -> None:
+    """
+    グラフを複数フォーマットで data/ に保存する。
+
+    graphml : 分析ツール間の標準形式（NetworkX / igraph / Gephi 共通）
+    gexf    : Gephi 専用。動的グラフ・リッチ属性対応
+    edges.csv: エッジリスト CSV（汎用）
+    nodes.csv: ノード属性 CSV（汎用）
+    """
+    DATA_OUT.mkdir(parents=True, exist_ok=True)
+    pr = nx.pagerank(G, weight="weight")
+
+    # ノード属性を付与
+    for node in G.nodes():
+        G.nodes[node]["in_degree"]  = G.in_degree(node)
+        G.nodes[node]["out_degree"] = G.out_degree(node)
+        G.nodes[node]["degree"]     = G.degree(node)
+        G.nodes[node]["pagerank"]   = round(pr[node], 8)
+
+    # GraphML（主力：igraph / NetworkX / Gephi 全対応）
+    p1 = DATA_OUT / "d18_citation_network.graphml"
+    nx.write_graphml(G, str(p1))
+    print(f"保存: {p1}")
+
+    # GEXF（Gephi 可視化用）
+    p2 = DATA_OUT / "d18_citation_network.gexf"
+    nx.write_gexf(G, str(p2))
+    print(f"保存: {p2}")
+
+    # エッジリスト CSV
+    import csv
+    p3 = DATA_OUT / "d18_edges.csv"
+    with open(p3, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["source", "target", "weight", "n_events",
+                    "year", "latest_date", "examiner_cited"])
+        for u, v, d in G.edges(data=True):
+            w.writerow([u, v, d["weight"], d["n_events"],
+                        d["year"], d["latest_date"], d["examiner_cited"]])
+    print(f"保存: {p3}")
+
+    # ノード属性 CSV
+    p4 = DATA_OUT / "d18_nodes.csv"
+    with open(p4, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["node_id", "in_degree", "out_degree", "degree", "pagerank"])
+        for node in G.nodes():
+            nd = G.nodes[node]
+            w.writerow([node, nd["in_degree"], nd["out_degree"],
+                        nd["degree"], nd["pagerank"]])
+    print(f"保存: {p4}")
+
+
 # ── メイン ──────────────────────────────────────────────────────────────
 
 def main():
     records = load_pairs()
     G       = build_directed_graph(records)
     print_stats(G)
+    print("\nグラフファイルを保存中...")
+    save_graph(G)
     print("\nネットワーク図を生成中...")
     visualize_network(G)
     print("\n完了。")
