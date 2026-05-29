@@ -337,6 +337,185 @@ data/{year}.csv ───┴─► edge_list/{year}.csv (STEP1)
 
 ---
 
+# バイナリ・インデックスファイル仕様
+
+## NumPy .npy ファイル一覧
+
+| ファイル | パス | dtype | shape | 内容 |
+|---|---|---|---|---|
+| `vectors_{year}.npy` | `class/D18/cited_image_vectors/{type}/` | float32 | (N, D) | 年別生埋め込みベクトル（Qwen3-VL-Embedding-2B出力） |
+| `patent_ids_{year}.npy` | `class/D18/cited_image_vectors/{type}/` | int64 | (N,) | 年別特許ID整数（行インデックスと1対1対応） |
+| `vectors_l2norm.npy` | `class/D18/rank_index/{type}/` | float32 | (N, D) | 全年統合・重複除去・L2正規化済みベクトル |
+| `patent_ids.npy` | `class/D18/rank_index/{type}/` | int64 | (N,) | 全年統合・重複除去済み特許ID（先頭出現を保持） |
+| `class_sim_binary.npy` | `ergm_input/` | bool | (N, N) | クラス共有の有無（対角=False） |
+| `class_sim_jaccard.npy` | `ergm_input/` | float32 | (N, N) | クラスJaccard類似度（対角=0） |
+
+**特許ID整数エンコード規則:**
+```python
+int("D543613".lstrip("D")) + 10_000_000_000  # → 10000543613
+```
+
+---
+
+## STEP V2: `vectors_{year}.npy` / `patent_ids_{year}.npy`
+
+年別の生ベクトル。`build_class_vectors.py` が書き込み、`build_rank_index.py` が読み込む中間ファイル。
+
+```python
+# 書き込み（build_class_vectors.py）
+vecs = np.concatenate(result_vecs, axis=0).astype(np.float32)
+np.save("vectors_{year}.npy", vecs)
+
+pat_ids = np.array(result_ids, dtype=np.int64)
+np.save("patent_ids_{year}.npy", pat_ids)
+
+# 読み込み（build_rank_index.py）
+ids = np.load("patent_ids_{year}.npy")
+vecs = np.load("vectors_{year}.npy")
+```
+
+---
+
+## STEP V3: `vectors_l2norm.npy` / `patent_ids.npy`（ランクインデックス）
+
+全年統合・重複除去・L2正規化済み。コサイン類似度検索の本体。
+
+```python
+# 書き込み（build_rank_index.py）
+vectors = np.concatenate(all_vecs, axis=0).astype(np.float32)
+
+# 重複除去（先頭年の出現を保持）
+_, first_idx = np.unique(patent_ids, return_index=True)
+patent_ids = patent_ids[first_idx]
+vectors    = vectors[first_idx]
+
+# L2正規化（ゼロベクトル対策あり）
+norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+norms = np.where(norms == 0, 1.0, norms)
+vectors = (vectors / norms).astype(np.float32)
+
+np.save("vectors_l2norm.npy", vectors)
+np.save("patent_ids.npy", patent_ids)
+
+# 読み込み・使用（compute_ranks.py）
+ids  = np.load("patent_ids.npy")
+vecs = np.load("vectors_l2norm.npy")
+
+# patent_id → 行インデックス の逆引き辞書を作成
+id2row = {int(pid): i for i, pid in enumerate(ids)}
+
+# コサイン類似度（ドット積）でランク計算
+query_vec = vecs[id2row[source_id]]           # shape (D,)
+sims = vecs @ query_vec                        # shape (N,)  BLAS dgemv
+sims[id2row[source_id]] = -2.0                # self除外
+rank = int(np.sum(sims > sims[id2row[target_id]])) + 1
+```
+
+---
+
+## ERGM用: `class_sim_binary.npy` / `class_sim_jaccard.npy`
+
+EstimNetDirected に渡すペア属性行列。メモリマップ（memmap）でチャンク生成。
+
+```python
+# class_sim_binary.npy（bool, N×N）
+# [i,j] = True  ←→  patents i,j が1つ以上のDクラスを共有
+inter = cls_vec_i16 @ cls_vec_i16.T   # クラスベクトルの内積
+binary = (inter > 0)
+np.fill_diagonal(binary, False)        # 対角=False
+
+# class_sim_jaccard.npy（float32, N×N）
+# [i,j] = |classes(i) ∩ classes(j)| / |classes(i) ∪ classes(j)|
+union  = n_cls[:, None] + n_cls[None, :] - inter
+jaccard = np.where(union > 0, inter / union, 0.0).astype(np.float32)
+np.fill_diagonal(jaccard, 0.0)
+
+# 読み込み
+binary  = np.load("class_sim_binary.npy")   # mmap_mode="r" 推奨
+jaccard = np.load("class_sim_jaccard.npy")
+```
+
+---
+
+## Pickle キャッシュファイル一覧
+
+| ファイル | フルパス | 構造 | キー | 値 |
+|---|---|---|---|---|
+| `_image_index.pkl` | `/mnt/eightthdd/uspto/_image_index.pkl` | `dict[int, dict[str,str]]` | 特許ID整数 | `{"perspective": "/path/to.TIF", ...}` |
+| `_class_index.pkl` | `/mnt/eightthdd/uspto/edge_list_with_class/_class_index.pkl` | `dict[str, str]` | 特許ID文字列 | 主クラスコード（例: `"D18"`） |
+| `_patent_attr_cache.pkl` | `ergm_input/_patent_attr_cache.pkl` | `dict[str, dict]` | 特許ID文字列 | `{"classes": set, "primary": str, "date": str}` |
+| `_patent_index.pkl` | `/mnt/eightthdd/uspto/yes_pair/_patent_index.pkl` | `dict[str, dict]` | 特許ID文字列 | `{"title": str, "class": str, "date": str, "year": str}` |
+
+**共通の読み書きパターン:**
+```python
+# 書き込み（初回のみ、protocol=HIGHEST_PROTOCOL で高速化）
+with open(cache_path, "wb") as f:
+    pickle.dump(index, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+# 読み込み（キャッシュヒット時）
+with open(cache_path, "rb") as f:
+    index = pickle.load(f)
+```
+
+再構築が必要な場合は各スクリプトの `--rebuild` フラグを使用。
+
+---
+
+### `_image_index.pkl` の詳細
+
+`image_index.py` が `data/{year}.csv` の `file_names`・`fig_desc` 列を解析して構築。
+
+```python
+# 画像タイプ判定ロジック（detect_image_type）
+if re.search(r"perspective", desc, re.I):   → "perspective"
+elif re.search(r"front (view|elevation...)", desc, re.I): → "front"
+else:                                        → "overview"
+
+# ファイルパスは file_names の先頭（D00000.TIF）を使用
+image_path = f"/mnt/eightthdd/impact/images/{year}/{filename}"
+```
+
+---
+
+### `_class_index.pkl` の詳細
+
+`add_class_to_edge_list.py` の `extract_main_class()` が解析。
+
+```python
+# 複数クラスは先頭1件を使用
+first = class_str.split(",")[0].strip()
+
+# 2桁優先ルール: D10-D34, D99 → 2桁; D1-D9 → 1桁
+m = re.match(r"D(\d+)", first)
+two = int(digits[:2])
+if 10 <= two <= 34 or two == 99:
+    return f"D{two}"    # "D18xx..." → "D18"
+```
+
+---
+
+## D18 インデックスファイル実パスまとめ
+
+```
+/mnt/eightthdd/uspto/class/D18/
+├── cited_image_vectors/
+│   ├── perspective/
+│   │   ├── patent_ids_{year}.npy   dtype=int64  shape=(N,)
+│   │   ├── vectors_{year}.npy      dtype=float32 shape=(N,D)
+│   │   └── file_paths_{year}.txt   N行
+│   ├── front/       （同構造）
+│   └── overview/    （同構造）
+└── rank_index/
+    ├── perspective/
+    │   ├── patent_ids.npy          dtype=int64  shape=(959,)   ← 全年統合・重複除去
+    │   ├── vectors_l2norm.npy      dtype=float32 shape=(959,D) ← L2正規化済み
+    │   └── file_paths.txt          959行
+    ├── front/        shape=(12,)
+    └── overview/     shape=(59,)
+```
+
+---
+
 # Claude Code 高度活用ガイド（研究・コンピュータ実験向け）
 
 研究の「複雑な入出力関係」という状況には、**コンテキストエンジニアリング**という考え方が最も有効です。単発プロンプトの工夫ではなく、実験環境全体を設計するアプローチです。
