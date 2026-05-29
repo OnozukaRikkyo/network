@@ -209,21 +209,25 @@ python3 plot_triplets.py
 | 入力 | `/home/sonozuka/network/data/triplets_type1_enriched.csv` |
 | 入力 | `/home/sonozuka/network/data/triplets_type2_enriched.csv` |
 | 入力 | `/home/sonozuka/network/data/triplets_type3_enriched.csv` |
-| 出力（PNG） | `/home/sonozuka/network/output/fig_triplet_scatter.png` |
-| 出力（PDF） | `/home/sonozuka/network/output/fig_triplet_scatter.pdf` |
+| 出力 | `/home/sonozuka/network/output/fig_triplet1_scatter.png` |
+| 出力 | `/home/sonozuka/network/output/fig_triplet2_scatter.png` |
+| 出力 | `/home/sonozuka/network/output/fig_triplet3_scatter.png` |
 
 ### 図スタイル仕様（PRL / Nature Physics 準拠）
 
 | 設定項目 | 値 |
 |---|---|
-| 図幅 | 7.2 inch（ダブルカラム） |
-| フォント | Arial / Helvetica, 8 pt（ラベル）/ 7 pt（ティック） |
-| DPI | 300（PNG）+ PDF ベクター |
+| 図サイズ | 3.5 × 3.5 inch（シングルカラム正方形）× 1タイプ1ファイル |
+| フォント | Arial / Helvetica, 14 pt（軸ラベル）/ 12 pt（ティック）/ 13 pt（ベース） |
+| DPI | 300 PNG のみ（PDF 不要） |
 | ティック方向 | 内向き（`direction='in'`）、4辺表示 |
 | マイナーティック | 0.05 間隔で表示 |
-| 上右スパイン | 細線（0.4 pt）で残す（4辺ボックス） |
-| カラーパレット | Okabe-Ito（色覚多様性対応） |
-| 密度等高線 | Gaussian KDE（25/55/80 パーセンタイル） |
+| スパイン | 4辺 0.7 pt 統一 |
+| マーカー | 中抜き円（`facecolors='none'`）、ネイビー `#1a3a6b`、同サイズ（s=10）|
+| タイトル | なし |
+| 等高線 | なし |
+| 軸ラベル | 矢印表記（例: `Cosine similarity (A→B)`）|
+| 対角参照線 | $x = y$ 点線 |
 
 ### 色の凡例
 

@@ -329,6 +329,83 @@ python3 enrich_triplets.py
 
 ---
 
+# STEP 4: 散布図作成 `plot_triplets.py`
+
+1タイプ1ファイル（PNG のみ）。物理学論文スタイル（PRL / Nature Physics 準拠）。
+
+## 実行方法
+
+```bash
+cd /home/sonozuka/network
+source venv/bin/activate
+python3 plot_triplets.py
+```
+
+## 入力
+
+| ファイル | フルパス |
+|---|---|
+| タイプ1 enriched | `/home/sonozuka/network/data/triplets_type1_enriched.csv` |
+| タイプ2 enriched | `/home/sonozuka/network/data/triplets_type2_enriched.csv` |
+| タイプ3 enriched | `/home/sonozuka/network/data/triplets_type3_enriched.csv` |
+
+## 出力
+
+| ファイル | フルパス | 内容 |
+|---|---|---|
+| タイプ1 散布図 | `/home/sonozuka/network/output/fig_triplet1_scatter.png` | 横: A→B、縦: B→C |
+| タイプ2 散布図 | `/home/sonozuka/network/output/fig_triplet2_scatter.png` | 横: A→B、縦: C→B |
+| タイプ3 散布図 | `/home/sonozuka/network/output/fig_triplet3_scatter.png` | 横: B→A、縦: C→B |
+
+## 図スタイル仕様（PRL / Nature Physics 準拠）
+
+| 設定 | 値 |
+|---|---|
+| 図サイズ | 3.5 × 3.5 inch（シングルカラム正方形）|
+| 出力形式 | PNG 300 DPI のみ（PDF 不要）|
+| フォント | Arial / Helvetica |
+| フォントサイズ | 軸ラベル 14 pt・ティック 12 pt・ベース 13 pt |
+| ティック方向 | 内向き（`direction='in'`）、4辺表示 |
+| マイナーティック | 0.05 間隔 |
+| スパイン | 4辺 0.7 pt 統一 |
+| マーカー | 中抜き円（`facecolors='none'`）|
+| マーカー色 | ネイビーブルー `#1a3a6b`（1色のみ）|
+| マーカーサイズ | s=10（全タイプ共通）|
+| タイトル | なし |
+| 等高線 | なし |
+| 凡例 | なし |
+| 軸ラベル | 矢印表記（例: `Cosine similarity (A→B)`）|
+| 対角参照線 | $x=y$ 点線（`ls=':'`、`color='#555555'`）|
+| 軸範囲 | [0.38, 1.02] |
+| ティック間隔（major）| 0.1 |
+
+## matplotlib rcParams（主要設定）
+
+```python
+RC = {
+    "font.family":         "sans-serif",
+    "font.sans-serif":     ["Arial", "Helvetica", "DejaVu Sans"],
+    "font.size":           13,
+    "axes.labelsize":      14,
+    "xtick.labelsize":     12,
+    "ytick.labelsize":     12,
+    "axes.linewidth":      0.7,
+    "xtick.direction":     "in",
+    "ytick.direction":     "in",
+    "xtick.major.size":    4.5,
+    "ytick.major.size":    4.5,
+    "xtick.minor.size":    2.2,
+    "ytick.minor.size":    2.2,
+    "xtick.minor.visible": True,
+    "ytick.minor.visible": True,
+    "xtick.top":           True,
+    "ytick.right":         True,
+    "savefig.dpi":         300,
+}
+```
+
+---
+
 # パイプライン実行順序
 
 ```bash
@@ -338,6 +415,7 @@ source venv/bin/activate
 python3 build_network.py       # STEP 1: 有向グラフ構築・統計・可視化・グラフ保存
 python3 triplet_analysis.py    # STEP 2: トリプレット抽出
 python3 enrich_triplets.py     # STEP 3: コサイン類似度・LLM判定・理由を付与
+python3 plot_triplets.py       # STEP 4: 散布図作成（1タイプ1PNG）
 ```
 
 # 全ファイル一覧
@@ -356,6 +434,9 @@ python3 enrich_triplets.py     # STEP 3: コサイン類似度・LLM判定・理
 | タイプ1 enriched | `/home/sonozuka/network/data/triplets_type1_enriched.csv` | enrich_triplets.py |
 | タイプ2 enriched | `/home/sonozuka/network/data/triplets_type2_enriched.csv` | enrich_triplets.py |
 | タイプ3 enriched | `/home/sonozuka/network/data/triplets_type3_enriched.csv` | enrich_triplets.py |
+| タイプ1 散布図 | `/home/sonozuka/network/output/fig_triplet1_scatter.png` | plot_triplets.py |
+| タイプ2 散布図 | `/home/sonozuka/network/output/fig_triplet2_scatter.png` | plot_triplets.py |
+| タイプ3 散布図 | `/home/sonozuka/network/output/fig_triplet3_scatter.png` | plot_triplets.py |
 
 # 詳細ドキュメント
 
