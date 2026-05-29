@@ -101,29 +101,31 @@ AとCが一致するケースは除外。
 
 ---
 
----
+## エッジ特徴量付与（`enrich_triplets.py`）
 
-## コサイン類似度付きトリプレット（`add_similarity.py`）
+コサイン類似度・LLM判定（Yes/No）・判断理由を各トリプレットのエッジに付与する。
 
 ### 入出力
 
-| 種別 | フルパス |
-|---|---|
-| 類似度ソース | `/mnt/eightthdd/uspto/class/D18/rank_judgments/cosine_numpy/all.jsonl` |
-| 出力 | `/home/sonozuka/network/data/triplets_type1_sim.csv` |
-| 出力 | `/home/sonozuka/network/data/triplets_type2_sim.csv` |
-| 出力 | `/home/sonozuka/network/data/triplets_type3_sim.csv` |
+| 種別 | フルパス | 備考 |
+|---|---|---|
+| 入力 | `/home/sonozuka/network/data/triplets_type1.csv` | triplet_analysis.py 出力 |
+| 入力 | `/home/sonozuka/network/data/triplets_type2.csv` | 同上 |
+| 入力 | `/home/sonozuka/network/data/triplets_type3.csv` | 同上 |
+| 特徴量ソース | `/mnt/eightthdd/uspto/class/D18/rank_judgments/cosine_numpy/all.jsonl` | 1,530ペア |
+| 出力 | `/home/sonozuka/network/data/triplets_type1_enriched.csv` | 2,164行 × 9列 |
+| 出力 | `/home/sonozuka/network/data/triplets_type2_enriched.csv` | 2,255行 × 9列 |
+| 出力 | `/home/sonozuka/network/data/triplets_type3_enriched.csv` | 2,164行 × 9列 |
 
-ルックアップキーは `(min(u,v), max(u,v))` に正規化（ソースが常に source < target のため）。
-全 6,583 件で欠損なし（ヒット率 100%）。
+ルックアップキーは `(min(u,v), max(u,v))` に正規化。全 6,583 件で欠損なし（ヒット率 100%）。
 
 ### 出力 CSV 列構成
 
-| タイプ | 列 |
+| タイプ | 列（順序） |
 |---|---|
-| タイプ1 | `node_A, node_B, node_C, sim_A_B, sim_B_C` |
-| タイプ2 | `node_A, node_B, node_C, sim_A_B, sim_C_B` |
-| タイプ3 | `node_A, node_B, node_C, sim_B_A, sim_C_B` |
+| タイプ1 | `node_A, node_B, node_C, sim_A_B, judgment_A_B, reason_A_B, sim_B_C, judgment_B_C, reason_B_C` |
+| タイプ2 | `node_A, node_B, node_C, sim_A_B, judgment_A_B, reason_A_B, sim_C_B, judgment_C_B, reason_C_B` |
+| タイプ3 | `node_A, node_B, node_C, sim_B_A, judgment_B_A, reason_B_A, sim_C_B, judgment_C_B, reason_C_B` |
 
 ### コサイン類似度統計
 
@@ -148,17 +150,41 @@ AとCが一致するケースは除外。
 | sim_B_A | 0.4389 | 0.9967 | 0.8882 | 0.0906 | 0.9139 |
 | sim_C_B | 0.4395 | 0.9967 | 0.8898 | 0.0997 | 0.9202 |
 
+### LLM 判定統計（judgment: Yes/No）
+
+#### タイプ1: A → B → C（連鎖）
+
+| エッジ | Yes | No | Yes率 |
+|---|---|---|---|
+| judgment_A_B | 339 | 1,825 | 15.7% |
+| judgment_B_C | 313 | 1,851 | 14.5% |
+
+#### タイプ2: A → B ← C（収束）
+
+| エッジ | Yes | No | Yes率 |
+|---|---|---|---|
+| judgment_A_B | 270 | 1,985 | 12.0% |
+| judgment_C_B | 272 | 1,983 | 12.1% |
+
+#### タイプ3: A ← B ← C（連鎖逆）
+
+| エッジ | Yes | No | Yes率 |
+|---|---|---|---|
+| judgment_B_A | 313 | 1,851 | 14.5% |
+| judgment_C_B | 339 | 1,825 | 15.7% |
+
 ### 観察
 
-- **タイプ1とタイプ3の類似度が対称**: タイプ1の sim_A_B ≈ タイプ3の sim_C_B（同一エッジセットの逆参照）。
-- **タイプ2の mean が最も低い（0.8739 / 0.8822）**: 収束パターンでは、2つの先行デザインがそれぞれ中間デザインと比較されるが、連鎖パターンより平均類似度が低い。「競合する複数の先行例」が引用されるケースは、必ずしも高類似度ペアに限らない可能性。
-- **全タイプで median > 0.89**: D18クラス内の引用ペアは全体的にコサイン類似度が高い（視覚的に類似したデザイン群が引用対象になる傾向）。
+- **類似度の対称性**: タイプ1とタイプ3は同一エッジセットの逆参照のため、sim/judgment が完全対称。
+- **タイプ2の類似度・Yes率が最も低い**: 収束パターン（A→B←C）は連鎖パターンより mean sim が低く（0.87台）、Yes率も 12% 前後にとどまる。競合する複数先行例が引用される場合は必ずしも高類似度ではない。
+- **全タイプで median sim > 0.89**: D18クラス内の引用ペアは全体的にコサイン類似度が高い。
+- **judgment の Yes率は全体で約 14.8%**: 元の引用ペアデータ（227/1,530 = 14.8%）と一致しており、トリプレット展開後もバランスが保持されている。
 
 ## 次のステップ
 
-- タイプ別のコサイン類似度分布を可視化（ヒストグラム / バイオリンプロット）
-- `judgment`（Yes/No）情報も結合して「視覚的一致判定」との比較分析
-- ハブノード（高次数）がどのタイプに多く出現するかを分析
+- タイプ別の sim / judgment 分布の可視化
+- 両エッジが共に Yes のトリプレット（強一致三角形）の抽出
+- ハブノード（高次数）がどのタイプに多く出現するかの分析
 
 ## 参照
 
