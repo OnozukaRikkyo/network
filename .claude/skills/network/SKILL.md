@@ -196,13 +196,13 @@ pip install networkx matplotlib numpy scipy pandas
                         │
                         ▼
             ┌───────────────────────┐
-            │   add_similarity.py   │
+            │  enrich_triplets.py   │
             └───────────┬───────────┘
                         │
                         ▼
-            data/triplets_type1_sim.csv
-            data/triplets_type2_sim.csv
-            data/triplets_type3_sim.csv
+            data/triplets_type1_enriched.csv
+            data/triplets_type2_enriched.csv
+            data/triplets_type3_enriched.csv
 ```
 
 ---
@@ -440,11 +440,13 @@ python3 plot_heatmap.py
 | 図サイズ | 8.0 × 2.8 inch（3パネル横並び + 共通カラーバー）|
 | カラーマップ | `Blues`（モノクロ印刷・色覚多様性対応）|
 | 共通カラーバー | vmin=0、vmax=全タイプ最大カウント（1,818）|
-| セル注釈 | カウント値 13 pt bold、背景濃度に応じて白/黒文字切替（閾値 55%）|
+| セル注釈 | カウント値 13 pt bold、背景濃度 > 55% で白文字・それ以下で黒文字 |
 | 軸ラベル | 矢印表記（例: `Judgment (A→B)`）、14 pt |
-| ティック | 外向き length=0（ヒートマップ枠線のみ）|
-| パネルラベル | (a)(b)(c)、14 pt bold |
-| スパイン | 4辺 0.7 pt 統一 |
+| ティック | `direction='out'`、`length=0`（目盛り線なし）|
+| ティックラベル | `"0"` / `"1"`（Yes/No 表記なし）|
+| パネルラベル | なし |
+| セル枠線 | `axvline`/`axhline` + スパイン を `color='black'`、`linewidth=2.0`、`zorder=10` で前面描画 |
+| スパイン | 4辺 `linewidth=2.0`、`color='black'`、`zorder=10` |
 | フォント | Arial / Helvetica、13/14 pt |
 
 ## カウント行列（実測値）
