@@ -72,7 +72,7 @@ TYPES = {
     ),
 }
 
-TICK_LABELS = ["0 (No)", "1 (Yes)"]
+TICK_LABELS = ["0", "1"]
 
 
 def build_matrix(df: pd.DataFrame, jx: str, jy: str) -> np.ndarray:
@@ -133,10 +133,13 @@ def main():
             ax.set_xlabel(cfg["x_lbl"])
             ax.set_ylabel(cfg["y_lbl"])
 
-            # パネルラベル
-            ax.text(-0.18, 1.06, cfg["panel"],
-                    transform=ax.transAxes,
-                    fontsize=14, fontweight="bold", va="top")
+            # セル枠線
+            for xi in range(2):
+                for yi in range(2):
+                    ax.add_patch(plt.Rectangle(
+                        (yi - 0.5, xi - 0.5), 1, 1,
+                        fill=False, edgecolor="white", linewidth=2.0, zorder=3,
+                    ))
 
             # スパイン統一
             for spine in ax.spines.values():
