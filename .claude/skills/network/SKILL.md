@@ -92,3 +92,69 @@ networkx.Graph / DiGraph を構築
 - 詳細な入出力マップ: `/home/sonozuka/network/CLAUDE.md`
 - 上流スクリプト: `/home/sonozuka/design_similarity/extract_cited_image_pairs.py`
 - 判定結合済み出力: `/mnt/eightthdd/uspto/class/D18/rank_judgments/cosine_numpy/all.jsonl`
+
+---
+
+# ネットワーク構築スクリプト: `build_network.py`
+
+## 実行方法
+
+```bash
+cd /home/sonozuka/network
+source venv/bin/activate
+python3 build_network.py
+```
+
+## 有向グラフの定義
+
+| 要素 | 定義 |
+|---|---|
+| ノード | デザイン特許ID（`D0xxxxxx` 形式）|
+| エッジ方向 | `source → target`（D番号昇順 = 先行特許 → 後続特許）|
+| エッジ重み | `events` 数（同ペアが複数出願で共引用された回数）|
+| エッジ属性 | `year`, `latest_date`, `examiner_cited` |
+
+## 出力ファイル
+
+| ファイル | 内容 |
+|---|---|
+| `/home/sonozuka/network/output/d18_citation_network.png` | ネットワーク図（最大WCC + 高次数サブグラフ） |
+| `/home/sonozuka/network/output/d18_degree_distribution.png` | in/out/total 次数分布ヒストグラム |
+
+## 実測統計（2007〜2022 全年）
+
+```
+ノード数（特許数）    : 1,030
+エッジ数（ペア数）    : 1,530
+密度                 : 0.001444
+平均クラスタ係数      : 0.5236
+
+【ネットワーク数（連結成分）】
+  弱連結成分 (WCC) 数 : 252
+  強連結成分 (SCC) 数 : 1,030  ← 全ノードが独立（DAG的構造）
+  最大 WCC ノード数   : 44 (4.3%)
+  WCC サイズ上位5     : [44, 31, 24, 20, 20]
+  孤立ノード数        : 0（全ノードが少なくとも1エッジを持つ）
+
+【in-degree（被引用数）】
+  min=0  max=21  mean=1.485  std=1.912  median=1.0
+  上位: D0832343(21), D0827021(15), D0821490(14)
+
+【out-degree（引用数）】
+  min=0  max=13  mean=1.485  std=1.805  median=1.0
+  上位: D0807426(13), D0808461(12), D0811474(11)
+
+【エッジ重み（共引用イベント数）】
+  min=1  max=15  mean=1.524  weight=1: 66.9%  weight≥2: 33.1%
+
+【PageRank 上位3】
+  1. D0775275  PR=0.007204  in=11
+  2. D0832343  PR=0.006924  in=21
+  3. D0772977  PR=0.004989  in=6
+```
+
+## 依存ライブラリ
+
+```bash
+pip install networkx matplotlib numpy scipy
+```
