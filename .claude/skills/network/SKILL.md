@@ -265,55 +265,67 @@ python3 triplet_analysis.py
 
 ---
 
-# STEP 3: コサイン類似度付与 `add_similarity.py`
+# STEP 3: エッジ特徴量付与 `enrich_triplets.py`
+
+コサイン類似度・LLM判定（Yes/No）・判断理由をトリプレットの各エッジに付与する。
 
 ## 実行方法
 
 ```bash
 cd /home/sonozuka/network
 source venv/bin/activate
-python3 add_similarity.py
+python3 enrich_triplets.py
 ```
 
 ## 入力
 
 | ファイル | フルパス | 形式 | 備考 |
 |---|---|---|---|
-| トリプレット（タイプ1） | `/home/sonozuka/network/data/triplets_type1.csv` | CSV | `triplet_analysis.py` 出力 |
-| トリプレット（タイプ2） | `/home/sonozuka/network/data/triplets_type2.csv` | CSV | 同上 |
-| トリプレット（タイプ3） | `/home/sonozuka/network/data/triplets_type3.csv` | CSV | 同上 |
-| 類似度データ | `/mnt/eightthdd/uspto/class/D18/rank_judgments/cosine_numpy/all.jsonl` | JSONL | 1,530ペア、欠損なし |
+| トリプレット タイプ1 | `/home/sonozuka/network/data/triplets_type1.csv` | CSV | `triplet_analysis.py` 出力 |
+| トリプレット タイプ2 | `/home/sonozuka/network/data/triplets_type2.csv` | CSV | 同上 |
+| トリプレット タイプ3 | `/home/sonozuka/network/data/triplets_type3.csv` | CSV | 同上 |
+| エッジ特徴量ソース | `/mnt/eightthdd/uspto/class/D18/rank_judgments/cosine_numpy/all.jsonl` | JSONL | 1,530ペア、欠損なし |
 
-**類似度 JSONL の使用フィールド:**
+**JSONL 使用フィールド:**
 
-| フィールド | 内容 |
-|---|---|
-| `source` | 先行特許ID（source < target） |
-| `target` | 後続特許ID |
-| `similarity` | コサイン類似度（0〜1） |
+| フィールド | 型 | 内容 |
+|---|---|---|
+| `source` | str | 先行特許ID（source < target、アルファベット順） |
+| `target` | str | 後続特許ID |
+| `similarity` | float | コサイン類似度（0〜1） |
+| `judgment` | str | LLM判定: `"Yes"` または `"No"` |
+| `reason` | str | 判断理由（英語 1〜2文） |
 
-**ルックアップキー正規化:** `(min(u, v), max(u, v))` で統一（source < target 保証）
+**ルックアップキー正規化:** `(min(u, v), max(u, v))` で統一
 
 ## 出力
 
-| ファイル | フルパス | 列構成 |
-|---|---|---|
-| タイプ1 + 類似度 | `/home/sonozuka/network/data/triplets_type1_sim.csv` | `node_A, node_B, node_C, sim_A_B, sim_B_C` |
-| タイプ2 + 類似度 | `/home/sonozuka/network/data/triplets_type2_sim.csv` | `node_A, node_B, node_C, sim_A_B, sim_C_B` |
-| タイプ3 + 類似度 | `/home/sonozuka/network/data/triplets_type3_sim.csv` | `node_A, node_B, node_C, sim_B_A, sim_C_B` |
+| ファイル | フルパス | 行数 | 列数 |
+|---|---|---|---|
+| タイプ1 enriched | `/home/sonozuka/network/data/triplets_type1_enriched.csv` | 2,164 | 9 |
+| タイプ2 enriched | `/home/sonozuka/network/data/triplets_type2_enriched.csv` | 2,255 | 9 |
+| タイプ3 enriched | `/home/sonozuka/network/data/triplets_type3_enriched.csv` | 2,164 | 9 |
+
+**出力列構成:**
+
+| タイプ | 列（順序） |
+|---|---|
+| タイプ1 | `node_A, node_B, node_C, sim_A_B, judgment_A_B, reason_A_B, sim_B_C, judgment_B_C, reason_B_C` |
+| タイプ2 | `node_A, node_B, node_C, sim_A_B, judgment_A_B, reason_A_B, sim_C_B, judgment_C_B, reason_C_B` |
+| タイプ3 | `node_A, node_B, node_C, sim_B_A, judgment_B_A, reason_B_A, sim_C_B, judgment_C_B, reason_C_B` |
 
 **ヒット率: 100%（全 6,583 件、欠損 0 件）**
 
-## コサイン類似度統計
+## エッジ特徴量統計
 
-| タイプ | エッジ | min | max | mean | std | median |
-|---|---|---|---|---|---|---|
-| タイプ1 | sim_A_B | 0.4395 | 0.9967 | 0.8898 | 0.0997 | 0.9202 |
-| タイプ1 | sim_B_C | 0.4389 | 0.9967 | 0.8882 | 0.0906 | 0.9139 |
-| タイプ2 | sim_A_B | 0.4265 | 0.9953 | 0.8739 | 0.0958 | 0.8929 |
-| タイプ2 | sim_C_B | 0.4265 | 0.9967 | 0.8822 | 0.0928 | 0.9106 |
-| タイプ3 | sim_B_A | 0.4389 | 0.9967 | 0.8882 | 0.0906 | 0.9139 |
-| タイプ3 | sim_C_B | 0.4395 | 0.9967 | 0.8898 | 0.0997 | 0.9202 |
+| タイプ | エッジ | sim mean | sim median | Yes率 | No率 |
+|---|---|---|---|---|---|
+| タイプ1 | A↔B | 0.8898 | 0.9202 | 15.7% | 84.3% |
+| タイプ1 | B↔C | 0.8882 | 0.9139 | 14.5% | 85.5% |
+| タイプ2 | A↔B | 0.8739 | 0.8929 | 12.0% | 88.0% |
+| タイプ2 | C↔B | 0.8822 | 0.9106 | 12.1% | 87.9% |
+| タイプ3 | B↔A | 0.8882 | 0.9139 | 14.5% | 85.5% |
+| タイプ3 | C↔B | 0.8898 | 0.9202 | 15.7% | 84.3% |
 
 ---
 
@@ -325,7 +337,7 @@ source venv/bin/activate
 
 python3 build_network.py       # STEP 1: 有向グラフ構築・統計・可視化・グラフ保存
 python3 triplet_analysis.py    # STEP 2: トリプレット抽出
-python3 add_similarity.py      # STEP 3: コサイン類似度付与
+python3 enrich_triplets.py     # STEP 3: コサイン類似度・LLM判定・理由を付与
 ```
 
 # 全ファイル一覧
@@ -341,9 +353,9 @@ python3 add_similarity.py      # STEP 3: コサイン類似度付与
 | トリプレット タイプ1 | `/home/sonozuka/network/data/triplets_type1.csv` | triplet_analysis.py |
 | トリプレット タイプ2 | `/home/sonozuka/network/data/triplets_type2.csv` | triplet_analysis.py |
 | トリプレット タイプ3 | `/home/sonozuka/network/data/triplets_type3.csv` | triplet_analysis.py |
-| タイプ1 + 類似度 | `/home/sonozuka/network/data/triplets_type1_sim.csv` | add_similarity.py |
-| タイプ2 + 類似度 | `/home/sonozuka/network/data/triplets_type2_sim.csv` | add_similarity.py |
-| タイプ3 + 類似度 | `/home/sonozuka/network/data/triplets_type3_sim.csv` | add_similarity.py |
+| タイプ1 enriched | `/home/sonozuka/network/data/triplets_type1_enriched.csv` | enrich_triplets.py |
+| タイプ2 enriched | `/home/sonozuka/network/data/triplets_type2_enriched.csv` | enrich_triplets.py |
+| タイプ3 enriched | `/home/sonozuka/network/data/triplets_type3_enriched.csv` | enrich_triplets.py |
 
 # 詳細ドキュメント
 
